@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,152 +8,137 @@ import {
   ActivityIndicator,
   Platform,
   RefreshControl,
+  StatusBar,
+  Alert,
+  Modal,
 } from 'react-native';
-import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Location from 'expo-location';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useApp } from '@/context/AppContext';
-import { translations } from '@/data/translations';
-import { getSoilInfoByState, SoilInfo } from '@/data/soilData';
-import Colors from '@/constants/colors';
-import WeatherCard from '@/components/WeatherCard';
-import Footer from '@/components/Footer';
-import DrawerMenu from '@/components/DrawerMenu';
-import { getApiUrl } from '@/lib/query-client';
+import Icon from 'react-native-vector-icons/Ionicons';
+import LinearGradient from 'react-native-linear-gradient';
 
-export default function DashboardScreen() {
-  const { language, location, setLocation, weather, setWeather, forecast, setForecast } = useApp();
-  const t = translations[language];
-  const insets = useSafeAreaInsets();
-  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+// Mock data types
+interface LocationData {
+  latitude: number;
+  longitude: number;
+  city: string;
+  state: string;
+}
 
+interface WeatherData {
+  temp: number;
+  feelsLike: number;
+  humidity: number;
+  pressure: number;
+  windSpeed: number;
+  description: string;
+  icon: string;
+  rainfall: number;
+  visibility: number;
+  tempMin: number;
+  tempMax: number;
+}
+
+interface ForecastData {
+  date: string;
+  dayName: string;
+  tempMin: number;
+  tempMax: number;
+  description: string;
+  icon: string;
+  humidity: number;
+  rainfall: number;
+}
+
+interface SoilInfo {
+  soilType: string;
+  majorCrops: string;
+  irrigation: string;
+}
+
+// Mock components
+const WeatherCard = ({ icon, label, value, unit, color }: any) => (
+  <View style={[styles.weatherCard, { borderLeftColor: color }]}>
+    <Icon name={icon} size={20} color={color} />
+    <View style={styles.weatherCardText}>
+      <Text style={styles.weatherCardLabel}>{label}</Text>
+      <Text style={styles.weatherCardValue}>{value} <Text style={styles.weatherCardUnit}>{unit}</Text></Text>
+    </View>
+  </View>
+);
+
+const Footer = () => <View style={{ height: 60, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E0E0E0' }} />;
+
+const DrawerMenu = ({ visible, onClose }: { visible: boolean; onClose: () => void }) => (
+  <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <View style={styles.drawerOverlay}>
+      <View style={styles.drawerContent}>
+        <Pressable style={styles.drawerClose} onPress={onClose}>
+          <Icon name="close" size={24} color="#fff" />
+        </Pressable>
+        <Text style={styles.drawerTitle}>Menu</Text>
+        <Text style={styles.drawerItem}>Dashboard</Text>
+        <Text style={styles.drawerItem}>Crop Calendar</Text>
+        <Text style={styles.drawerItem}>Community</Text>
+      </View>
+    </View>
+  </Modal>
+);
+
+export default function DashboardScreen({ navigation }: { navigation?: any }) {
   const [loading, setLoading] = useState(true);
   const [locationError, setLocationError] = useState(false);
   const [soilInfo, setSoilInfo] = useState<SoilInfo | null>(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [location, setLocation] = useState<LocationData | null>(null);
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [forecast, setForecast] = useState<ForecastData[]>([]);
+
+  // Mock location data for demo
+  const mockLocation = { latitude: 28.6139, longitude: 77.2090, city: 'New Delhi', state: 'Delhi' };
+  const mockWeather: WeatherData = {
+    temp: 28,
+    feelsLike: 30,
+    humidity: 65,
+    pressure: 1013,
+    windSpeed: 12,
+    description: 'partly cloudy',
+    icon: '02d',
+    rainfall: 0,
+    visibility: 10,
+    tempMin: 26,
+    tempMax: 31,
+  };
+  const mockForecast: ForecastData[] = [
+    { date: '2026-02-12', dayName: 'Thu', tempMin: 24, tempMax: 30, description: 'sunny', icon: '01d', humidity: 60, rainfall: 0 },
+    { date: '2026-02-13', dayName: 'Fri', tempMin: 25, tempMax: 32, description: 'cloudy', icon: '04d', humidity: 70, rainfall: 2 },
+  ];
+  const mockSoil: SoilInfo = {
+    soilType: 'Alluvial Soil',
+    majorCrops: 'Wheat, Rice, Sugarcane',
+    irrigation: 'Canal & Tube well',
+  };
 
   const fetchLocationAndWeather = useCallback(async () => {
     try {
       setLoading(true);
       setLocationError(false);
+      setRefreshing(true);
 
-      let coords: { latitude: number; longitude: number };
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
-      if (Platform.OS === 'web') {
-        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 10000,
-          });
-        });
-        coords = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        };
-      } else {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          setLocationError(true);
-          setLoading(false);
-          return;
-        }
-        const loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        coords = {
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-        };
-      }
-
-      const baseUrl = getApiUrl();
-
-      const geoUrl = new URL('/api/geocode/reverse', baseUrl);
-      geoUrl.searchParams.set('lat', coords.latitude.toString());
-      geoUrl.searchParams.set('lon', coords.longitude.toString());
-      const geoRes = await fetch(geoUrl.toString());
-      const geoData = await geoRes.json();
-
-      let city = 'Unknown';
-      let state = 'Unknown';
-      if (Array.isArray(geoData) && geoData.length > 0) {
-        city = geoData[0].name || 'Unknown';
-        state = geoData[0].state || 'Unknown';
-      }
-
-      setLocation({ ...coords, city, state });
-
-      const soil = getSoilInfoByState(state);
-      setSoilInfo(soil);
-
-      const weatherUrl = new URL('/api/weather/current', baseUrl);
-      weatherUrl.searchParams.set('lat', coords.latitude.toString());
-      weatherUrl.searchParams.set('lon', coords.longitude.toString());
-      const weatherRes = await fetch(weatherUrl.toString());
-      const weatherData = await weatherRes.json();
-
-      if (weatherData.main) {
-        setWeather({
-          temp: Math.round(weatherData.main.temp),
-          feelsLike: Math.round(weatherData.main.feels_like),
-          humidity: weatherData.main.humidity,
-          pressure: weatherData.main.pressure,
-          windSpeed: Math.round(weatherData.wind?.speed * 3.6),
-          description: weatherData.weather?.[0]?.description || '',
-          icon: weatherData.weather?.[0]?.icon || '01d',
-          rainfall: weatherData.rain?.['1h'] || weatherData.rain?.['3h'] || 0,
-          visibility: Math.round((weatherData.visibility || 10000) / 1000),
-          tempMin: Math.round(weatherData.main.temp_min),
-          tempMax: Math.round(weatherData.main.temp_max),
-        });
-      }
-
-      const forecastUrl = new URL('/api/weather/forecast', baseUrl);
-      forecastUrl.searchParams.set('lat', coords.latitude.toString());
-      forecastUrl.searchParams.set('lon', coords.longitude.toString());
-      const forecastRes = await fetch(forecastUrl.toString());
-      const forecastData = await forecastRes.json();
-
-      if (forecastData.list) {
-        const dailyMap = new Map<string, any>();
-        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-        for (const item of forecastData.list) {
-          const date = item.dt_txt.split(' ')[0];
-          if (!dailyMap.has(date)) {
-            const d = new Date(item.dt * 1000);
-            dailyMap.set(date, {
-              date,
-              dayName: dayNames[d.getDay()],
-              tempMin: item.main.temp_min,
-              tempMax: item.main.temp_max,
-              description: item.weather[0].description,
-              icon: item.weather[0].icon,
-              humidity: item.main.humidity,
-              rainfall: item.rain?.['3h'] || 0,
-            });
-          } else {
-            const existing = dailyMap.get(date);
-            existing.tempMin = Math.min(existing.tempMin, item.main.temp_min);
-            existing.tempMax = Math.max(existing.tempMax, item.main.temp_max);
-            existing.rainfall += item.rain?.['3h'] || 0;
-          }
-        }
-
-        const forecastArr = Array.from(dailyMap.values())
-          .slice(0, 7)
-          .map((d) => ({
-            ...d,
-            tempMin: Math.round(d.tempMin),
-            tempMax: Math.round(d.tempMax),
-            rainfall: Math.round(d.rainfall * 10) / 10,
-          }));
-
-        setForecast(forecastArr);
-      }
+      // Mock location (simulate geolocation)
+      setLocation(mockLocation);
+      
+      // Mock soil data
+      setSoilInfo(mockSoil);
+      
+      // Mock weather
+      setWeather(mockWeather);
+      
+      // Mock forecast
+      setForecast(mockForecast);
+      
     } catch (error) {
       console.error('Error fetching data:', error);
       setLocationError(true);
@@ -165,14 +150,13 @@ export default function DashboardScreen() {
 
   useEffect(() => {
     fetchLocationAndWeather();
-  }, []);
+  }, [fetchLocationAndWeather]);
 
   const onRefresh = () => {
-    setRefreshing(true);
     fetchLocationAndWeather();
   };
 
-  const getWeatherIconName = (iconCode: string): keyof typeof Ionicons.glyphMap => {
+  const getWeatherIconName = (iconCode: string) => {
     if (iconCode.includes('01')) return 'sunny';
     if (iconCode.includes('02')) return 'partly-sunny';
     if (iconCode.includes('03') || iconCode.includes('04')) return 'cloudy';
@@ -183,24 +167,33 @@ export default function DashboardScreen() {
     return 'sunny';
   };
 
-  if (loading && !weather) {
+  const handleNavigation = (screen: string) => {
+    setDrawerVisible(false);
+    if (navigation) {
+      navigation.navigate(screen);
+    } else {
+      Alert.alert('Navigation', `Navigate to ${screen}`);
+    }
+  };
+
+  if (loading) {
     return (
-      <View style={[styles.loadingContainer, { paddingTop: topPad }]}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.loadingText}>{t.detectingLocation}</Text>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4CAF50" />
+        <Text style={styles.loadingText}>Detecting location...</Text>
       </View>
     );
   }
 
-  if (locationError && !weather) {
+  if (locationError) {
     return (
-      <View style={[styles.loadingContainer, { paddingTop: topPad }]}>
+      <View style={styles.loadingContainer}>
         <View style={styles.errorIcon}>
-          <Ionicons name="location-outline" size={48} color={Colors.error} />
+          <Icon name="location-outline" size={48} color="#f44336" />
         </View>
-        <Text style={styles.errorText}>{t.locationDenied}</Text>
+        <Text style={styles.errorText}>Location access denied</Text>
         <Pressable style={styles.retryBtn} onPress={fetchLocationAndWeather}>
-          <Text style={styles.retryText}>{t.enableLocation}</Text>
+          <Text style={styles.retryText}>Enable Location</Text>
         </Pressable>
       </View>
     );
@@ -209,51 +202,40 @@ export default function DashboardScreen() {
   return (
     <View style={styles.container}>
       <DrawerMenu visible={drawerVisible} onClose={() => setDrawerVisible(false)} />
-
+      
       <LinearGradient
         colors={['#1B5E20', '#2E7D32', '#43A047']}
-        style={[styles.topHeader, { paddingTop: topPad + 12 }]}
+        style={styles.topHeader}
       >
         <View style={styles.headerRow}>
           <Pressable onPress={() => setDrawerVisible(true)} style={styles.menuBtn}>
-            <Ionicons name="menu" size={24} color="#fff" />
+            <Icon name="menu" size={24} color="#fff" />
           </Pressable>
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>FarmGPT</Text>
           </View>
-          <Pressable
-            onPress={() => router.push('/language')}
-            style={styles.langBtn}
-          >
-            <Ionicons name="language" size={18} color="#fff" />
+          <Pressable onPress={() => handleNavigation('language')} style={styles.langBtn}>
+            <Icon name="language" size={18} color="#fff" />
           </Pressable>
         </View>
 
         {location && (
           <View style={styles.locationRow}>
-            <Ionicons name="location" size={14} color="#A5D6A7" />
-            <Text style={styles.locationText}>
-              {location.city}, {location.state}
-            </Text>
+            <Icon name="location" size={14} color="#A5D6A7" />
+            <Text style={styles.locationText}>{location.city}, {location.state}</Text>
           </View>
         )}
 
         {weather && (
           <View style={styles.mainWeather}>
             <View style={styles.tempSection}>
-              <Ionicons
-                name={getWeatherIconName(weather.icon)}
-                size={40}
-                color="#FFD54F"
-              />
-              <Text style={styles.bigTemp}>{weather.temp}{t.celsius}</Text>
+              <Icon name={getWeatherIconName(weather.icon)} size={40} color="#FFD54F" />
+              <Text style={styles.bigTemp}>{weather.temp}°C</Text>
             </View>
             <Text style={styles.weatherDesc}>
               {weather.description.charAt(0).toUpperCase() + weather.description.slice(1)}
             </Text>
-            <Text style={styles.feelsLike}>
-              {t.feelsLike} {weather.feelsLike}{t.celsius}
-            </Text>
+            <Text style={styles.feelsLike}>Feels like {weather.feelsLike}°C</Text>
           </View>
         )}
       </LinearGradient>
@@ -263,82 +245,52 @@ export default function DashboardScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#4CAF50']} />
         }
       >
         {weather && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t.weather}</Text>
+            <Text style={styles.sectionTitle}>Weather</Text>
             <View style={styles.cardsGrid}>
-              <WeatherCard
-                icon="thermometer-outline"
-                label={t.temperature}
-                value={`${weather.temp}`}
-                unit={t.celsius}
-                color="#E65100"
-              />
-              <WeatherCard
-                icon="water-outline"
-                label={t.humidity}
-                value={`${weather.humidity}`}
-                unit={t.percent}
-                color="#1565C0"
-              />
-              <WeatherCard
-                icon="rainy-outline"
-                label={t.rainfall}
-                value={`${weather.rainfall}`}
-                unit={t.mm}
-                color="#0277BD"
-              />
-              <WeatherCard
-                icon="speedometer-outline"
-                label={t.windSpeed}
-                value={`${weather.windSpeed}`}
-                unit={t.kmh}
-                color="#00695C"
-              />
+              <WeatherCard icon="thermometer-outline" label="Temperature" value={weather.temp.toString()} unit="°C" color="#E65100" />
+              <WeatherCard icon="water-outline" label="Humidity" value={weather.humidity.toString()} unit="%" color="#1565C0" />
+              <WeatherCard icon="rainy-outline" label="Rainfall" value={weather.rainfall.toString()} unit="mm" color="#0277BD" />
+              <WeatherCard icon="speedometer-outline" label="Wind Speed" value={weather.windSpeed.toString()} unit="km/h" color="#00695C" />
             </View>
           </View>
         )}
 
         {soilInfo && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t.soilInfo}</Text>
+            <Text style={styles.sectionTitle}>Soil Information</Text>
             <View style={styles.soilCard}>
               <View style={styles.soilRow}>
                 <View style={styles.soilIconWrap}>
-                  <Ionicons name="earth" size={18} color={Colors.accent} />
+                  <Icon name="earth" size={18} color="#4CAF50" />
                 </View>
                 <View style={styles.soilTextWrap}>
-                  <Text style={styles.soilLabel}>{t.soilType}</Text>
-                  <Text style={styles.soilValue}>
-                    {language === 'hi' ? soilInfo.soilTypeHi : soilInfo.soilType}
-                  </Text>
+                  <Text style={styles.soilLabel}>Soil Type</Text>
+                  <Text style={styles.soilValue}>{soilInfo.soilType}</Text>
                 </View>
               </View>
               <View style={styles.soilDivider} />
               <View style={styles.soilRow}>
                 <View style={styles.soilIconWrap}>
-                  <Ionicons name="leaf" size={18} color={Colors.primary} />
+                  <Icon name="leaf" size={18} color="#4CAF50" />
                 </View>
                 <View style={styles.soilTextWrap}>
-                  <Text style={styles.soilLabel}>{t.cropsGrown}</Text>
-                  <Text style={styles.soilValue}>
-                    {language === 'hi' ? soilInfo.majorCropsHi : soilInfo.majorCrops}
-                  </Text>
+                  <Text style={styles.soilLabel}>Major Crops</Text>
+                  <Text style={styles.soilValue}>{soilInfo.majorCrops}</Text>
                 </View>
               </View>
               <View style={styles.soilDivider} />
               <View style={styles.soilRow}>
                 <View style={styles.soilIconWrap}>
-                  <Ionicons name="water" size={18} color="#1565C0" />
+                  <Icon name="water" size={18} color="#1565C0" />
                 </View>
                 <View style={styles.soilTextWrap}>
-                  <Text style={styles.soilLabel}>{t.irrigationType}</Text>
-                  <Text style={styles.soilValue}>
-                    {language === 'hi' ? soilInfo.irrigationHi : soilInfo.irrigation}
-                  </Text>
+                  <Text style={styles.soilLabel}>Irrigation</Text>
+                  <Text style={styles.soilValue}>{soilInfo.irrigation}</Text>
                 </View>
               </View>
             </View>
@@ -346,290 +298,8 @@ export default function DashboardScreen() {
         )}
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t.howCanIHelp}</Text>
+          <Text style={styles.sectionTitle}>How can we help?</Text>
           <View style={styles.helpOptions}>
-            <Pressable
-              style={({ pressed }) => [styles.helpCard, pressed && styles.helpCardPressed]}
-              onPress={() => router.push('/recommendations')}
-            >
-              <LinearGradient
-                colors={['#E8F5E9', '#C8E6C9']}
-                style={styles.helpGradient}
-              >
-                <View style={[styles.helpIconWrap, { backgroundColor: '#2E7D32' }]}>
-                  <Ionicons name="leaf" size={24} color="#fff" />
-                </View>
-                <Text style={styles.helpTitle}>{t.quickRecommendations}</Text>
-                <Text style={styles.helpDesc}>{t.quickRecommendationsDesc}</Text>
-                <Ionicons name="arrow-forward" size={18} color={Colors.primary} style={styles.helpArrow} />
-              </LinearGradient>
-            </Pressable>
-
-            <Pressable
-              style={({ pressed }) => [styles.helpCard, pressed && styles.helpCardPressed]}
-              onPress={() => router.push('/weather-detail')}
-            >
-              <LinearGradient
-                colors={['#E3F2FD', '#BBDEFB']}
-                style={styles.helpGradient}
-              >
-                <View style={[styles.helpIconWrap, { backgroundColor: '#1565C0' }]}>
-                  <Ionicons name="cloud" size={24} color="#fff" />
-                </View>
-                <Text style={styles.helpTitle}>{t.weatherInfo}</Text>
-                <Text style={styles.helpDesc}>{t.weatherInfoDesc}</Text>
-                <Ionicons name="arrow-forward" size={18} color="#1565C0" style={styles.helpArrow} />
-              </LinearGradient>
-            </Pressable>
-
-            <Pressable
-              style={({ pressed }) => [styles.helpCard, pressed && styles.helpCardPressed]}
-              onPress={() => router.push('/schemes')}
-            >
-              <LinearGradient
-                colors={['#FFF8E1', '#FFECB3']}
-                style={styles.helpGradient}
-              >
-                <View style={[styles.helpIconWrap, { backgroundColor: '#F57F17' }]}>
-                  <Ionicons name="document-text" size={24} color="#fff" />
-                </View>
-                <Text style={styles.helpTitle}>{t.govSchemes}</Text>
-                <Text style={styles.helpDesc}>{t.govSchemesDesc}</Text>
-                <Ionicons name="arrow-forward" size={18} color="#F57F17" style={styles.helpArrow} />
-              </LinearGradient>
-            </Pressable>
-          </View>
-        </View>
-
-        <View style={{ height: 20 }} />
-      </ScrollView>
-
-      <Footer />
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.background,
-    gap: 16,
-    padding: 24,
-  },
-  loadingText: {
-    fontSize: 15,
-    color: Colors.textSecondary,
-    fontFamily: 'Poppins_500Medium',
-  },
-  errorIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#FFEBEE',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  errorText: {
-    fontSize: 16,
-    color: Colors.text,
-    fontFamily: 'Poppins_600SemiBold',
-    textAlign: 'center',
-  },
-  retryBtn: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  retryText: {
-    color: '#fff',
-    fontSize: 15,
-    fontFamily: 'Poppins_600SemiBold',
-  },
-  topHeader: {
-    paddingHorizontal: 20,
-    paddingBottom: 24,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  menuBtn: {
-    padding: 4,
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 20,
-    color: '#fff',
-    fontFamily: 'Poppins_700Bold',
-  },
-  langBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    marginBottom: 16,
-  },
-  locationText: {
-    color: '#A5D6A7',
-    fontSize: 13,
-    fontFamily: 'Poppins_500Medium',
-  },
-  mainWeather: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  tempSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  bigTemp: {
-    fontSize: 48,
-    color: '#fff',
-    fontFamily: 'Poppins_700Bold',
-  },
-  weatherDesc: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 15,
-    fontFamily: 'Poppins_500Medium',
-  },
-  feelsLike: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 12,
-    fontFamily: 'Poppins_400Regular',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 20,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    color: Colors.text,
-    fontFamily: 'Poppins_700Bold',
-    marginBottom: 12,
-  },
-  cardsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  soilCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: Colors.cardShadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-  },
-  soilRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  soilIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: Colors.backgroundDark,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  soilTextWrap: {
-    flex: 1,
-  },
-  soilLabel: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-    fontFamily: 'Poppins_500Medium',
-  },
-  soilValue: {
-    fontSize: 14,
-    color: Colors.text,
-    fontFamily: 'Poppins_600SemiBold',
-  },
-  soilDivider: {
-    height: 1,
-    backgroundColor: Colors.borderLight,
-    marginVertical: 10,
-    marginLeft: 48,
-  },
-  helpOptions: {
-    gap: 12,
-  },
-  helpCard: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: Colors.cardShadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  helpCardPressed: {
-    transform: [{ scale: 0.98 }],
-    opacity: 0.9,
-  },
-  helpGradient: {
-    padding: 18,
-    borderRadius: 16,
-  },
-  helpIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  helpTitle: {
-    fontSize: 16,
-    color: Colors.text,
-    fontFamily: 'Poppins_700Bold',
-    marginBottom: 4,
-  },
-  helpDesc: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    fontFamily: 'Poppins_400Regular',
-    lineHeight: 18,
-  },
-  helpArrow: {
-    position: 'absolute',
-    right: 18,
-    top: 18,
-  },
-});
+            <Pressable style={({ pressed }) => [styles.helpCard, pressed && styles.helpCardPressed]}
+              onPress={() => handleNavigation('recommendations')}>
+              <LinearGrad
