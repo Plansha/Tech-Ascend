@@ -1,28 +1,20 @@
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
-import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { KeyboardProvider } from "react-native-keyboard-controller";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/query-client";
 import { AppProvider } from "@/context/AppContext";
-import {
-  useFonts,
-  Poppins_400Regular,
-  Poppins_500Medium,
-  Poppins_600SemiBold,
-  Poppins_700Bold,
-} from "@expo-google-fonts/poppins";
 
-SplashScreen.preventAutoHideAsync();
+const Stack = createStackNavigator();
 
 function RootLayoutNav() {
   return (
-    <Stack
+    <Stack.Navigator
       screenOptions={{
         headerShown: false,
-        animation: "slide_from_right",
+        animationTypeForReplace: 'pop',
       }}
     >
       <Stack.Screen name="index" />
@@ -34,38 +26,20 @@ function RootLayoutNav() {
       <Stack.Screen name="community" />
       <Stack.Screen name="crop-calendar" />
       <Stack.Screen name="about" />
-      <Stack.Screen name="+not-found" />
-    </Stack>
+    </Stack.Navigator>
   );
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
-    Poppins_400Regular,
-    Poppins_500Medium,
-    Poppins_600SemiBold,
-    Poppins_700Bold,
-  });
-
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
-
-  if (!fontsLoaded) {
-    return null;
-  }
-
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1 }}>
-          <KeyboardProvider>
-            <AppProvider>
+          <AppProvider>
+            <NavigationContainer>
               <RootLayoutNav />
-            </AppProvider>
-          </KeyboardProvider>
+            </NavigationContainer>
+          </AppProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>
     </ErrorBoundary>
