@@ -7,78 +7,79 @@ import {
   Pressable,
   Platform,
 } from 'react-native';
-import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useApp } from '@/context/AppContext';
-import { translations } from '@/data/translations';
-import { getRecommendedCrops, CropRecommendation } from '@/data/cropRecommendations';
-import { getSoilInfoByState } from '@/data/soilData';
-import Colors from '@/constants/colors';
-import Footer from '@/components/Footer';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useNavigation } from '@react-navigation/native';
 
-function CropCard({ crop, language, index }: { crop: CropRecommendation; language: 'en' | 'hi'; index: number }) {
-  const t = translations[language];
+const mockCrops = [
+  {
+    name: 'Rice',
+    season: 'Kharif',
+    icon: 'R',
+    waterNeeds: 'High',
+    expectedYield: '6-8 tons/ha'
+  },
+  {
+    name: 'Maize',
+    season: 'Kharif',
+    icon: 'M',
+    waterNeeds: 'Medium',
+    expectedYield: '4-6 tons/ha'
+  },
+  {
+    name: 'Wheat',
+    season: 'Rabi',
+    icon: 'W',
+    waterNeeds: 'Medium',
+    expectedYield: '3-5 tons/ha'
+  }
+];
+
+function CropCard({ crop, index }) {
   return (
-    <Animated.View entering={FadeInDown.delay(index * 100).duration(400)}>
-      <View style={styles.cropCard}>
-        <View style={styles.cropHeader}>
-          <View style={styles.cropIconWrap}>
-            <Ionicons name={crop.icon as any} size={22} color={Colors.primary} />
-          </View>
-          <View style={styles.cropNameWrap}>
-            <Text style={styles.cropName}>
-              {language === 'hi' ? crop.nameHi : crop.name}
-            </Text>
-            <View style={styles.seasonBadge}>
-              <Text style={styles.seasonBadgeText}>
-                {language === 'hi' ? crop.seasonHi : crop.season}
-              </Text>
-            </View>
-          </View>
+    <View style={styles.cropCard}>
+      <View style={styles.cropHeader}>
+        <View style={styles.cropIconWrap}>
+          <Text style={styles.cropIcon}>{crop.icon}</Text>
         </View>
-        <View style={styles.cropDetails}>
-          <View style={styles.cropDetail}>
-            <Ionicons name="water-outline" size={14} color="#1565C0" />
-            <Text style={styles.cropDetailLabel}>{t.waterNeeds}</Text>
-            <Text style={styles.cropDetailValue}>
-              {language === 'hi' ? crop.waterNeedsHi : crop.waterNeeds}
-            </Text>
-          </View>
-          <View style={styles.cropDetail}>
-            <Ionicons name="trending-up" size={14} color="#2E7D32" />
-            <Text style={styles.cropDetailLabel}>{t.expectedYield}</Text>
-            <Text style={styles.cropDetailValue}>
-              {language === 'hi' ? crop.expectedYieldHi : crop.expectedYield}
-            </Text>
+        <View style={styles.cropNameWrap}>
+          <Text style={styles.cropName}>{crop.name}</Text>
+          <View style={styles.seasonBadge}>
+            <Text style={styles.seasonBadgeText}>{crop.season}</Text>
           </View>
         </View>
       </View>
-    </Animated.View>
+      <View style={styles.cropDetails}>
+        <View style={styles.cropDetail}>
+          <Text style={styles.waterIcon}>💧</Text>
+          <Text style={styles.cropDetailLabel}>Water Needs:</Text>
+          <Text style={styles.cropDetailValue}>{crop.waterNeeds}</Text>
+        </View>
+        <View style={styles.cropDetail}>
+          <Text style={styles.yieldIcon}>📈</Text>
+          <Text style={styles.cropDetailLabel}>Expected Yield:</Text>
+          <Text style={styles.cropDetailValue}>{crop.expectedYield}</Text>
+        </View>
+      </View>
+    </View>
   );
 }
 
 export default function RecommendationsScreen() {
-  const { language, weather, location } = useApp();
-  const t = translations[language];
-  const insets = useSafeAreaInsets();
-  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const navigation = useNavigation();
+  const topPad = Platform.OS === 'web' ? 67 : 44;
 
-  const soilInfo = location ? getSoilInfoByState(location.state) : null;
-  const soilType = soilInfo?.soilType || 'Alluvial Soil';
-  const temp = weather?.temp || 25;
-  const rainfall = weather?.rainfall || 50;
+  const temp = 28;
+  const rainfall = 45;
+  const soilType = 'Alluvial Soil';
 
-  const crops = getRecommendedCrops(temp, rainfall, soilType);
+  const crops = mockCrops;
 
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: topPad + 12 }]}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={Colors.text} />
+        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Text style={styles.backIcon}>←</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>{t.cropRecommendations}</Text>
+        <Text style={styles.headerTitle}>Crop Recommendations</Text>
         <View style={{ width: 30 }} />
       </View>
 
@@ -88,40 +89,31 @@ export default function RecommendationsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.conditionsBanner}>
-          <Text style={styles.conditionsTitle}>{t.basedOnConditions}</Text>
+          <Text style={styles.conditionsTitle}>Based on current conditions</Text>
           <View style={styles.conditionsRow}>
             <View style={styles.conditionChip}>
-              <Ionicons name="thermometer" size={14} color="#E65100" />
-              <Text style={styles.conditionText}>{temp}{t.celsius}</Text>
+              <Text style={styles.conditionIcon}>🌡️</Text>
+              <Text style={styles.conditionText}>{temp}°C</Text>
             </View>
             <View style={styles.conditionChip}>
-              <Ionicons name="rainy" size={14} color="#1565C0" />
-              <Text style={styles.conditionText}>{rainfall}{t.mm}</Text>
+              <Text style={styles.conditionIcon}>🌧️</Text>
+              <Text style={styles.conditionText}>{rainfall}mm</Text>
             </View>
             <View style={styles.conditionChip}>
-              <Ionicons name="earth" size={14} color={Colors.accent} />
-              <Text style={styles.conditionText}>{language === 'hi' && soilInfo ? soilInfo.soilTypeHi.substring(0, 15) : soilType.substring(0, 15)}</Text>
+              <Text style={styles.conditionIcon}>🌍</Text>
+              <Text style={styles.conditionText}>{soilType}</Text>
             </View>
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>{t.recommendedCrops}</Text>
+        <Text style={styles.sectionTitle}>Recommended Crops</Text>
 
         {crops.map((crop, index) => (
-          <CropCard key={crop.name} crop={crop} language={language} index={index} />
+          <CropCard key={crop.name} crop={crop} index={index} />
         ))}
-
-        {crops.length === 0 && (
-          <View style={styles.emptyState}>
-            <Ionicons name="leaf-outline" size={48} color={Colors.textSecondary} />
-            <Text style={styles.emptyText}>{t.noData}</Text>
-          </View>
-        )}
 
         <View style={{ height: 20 }} />
       </ScrollView>
-
-      <Footer />
     </View>
   );
 }
@@ -129,7 +121,7 @@ export default function RecommendationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#f5f5f5',
   },
   header: {
     flexDirection: 'row',
@@ -137,17 +129,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 16,
-    backgroundColor: Colors.surface,
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: '#e0e0e0',
   },
   backBtn: {
     padding: 4,
   },
+  backIcon: {
+    fontSize: 22,
+    color: '#333',
+    fontWeight: 'bold',
+  },
   headerTitle: {
     fontSize: 17,
-    color: Colors.text,
-    fontFamily: 'Poppins_700Bold',
+    color: '#333',
+    fontWeight: '700',
   },
   scrollView: {
     flex: 1,
@@ -156,17 +153,17 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   conditionsBanner: {
-    backgroundColor: Colors.surface,
+    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: '#e0e0e0',
   },
   conditionsTitle: {
     fontSize: 13,
-    color: Colors.textSecondary,
-    fontFamily: 'Poppins_500Medium',
+    color: '#666',
+    fontWeight: '500',
     marginBottom: 10,
   },
   conditionsRow: {
@@ -178,32 +175,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.backgroundDark,
+    backgroundColor: '#f0f0f0',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
   },
+  conditionIcon: {
+    fontSize: 14,
+  },
   conditionText: {
     fontSize: 12,
-    color: Colors.text,
-    fontFamily: 'Poppins_500Medium',
+    color: '#333',
+    fontWeight: '500',
   },
   sectionTitle: {
     fontSize: 18,
-    color: Colors.text,
-    fontFamily: 'Poppins_700Bold',
+    color: '#333',
+    fontWeight: '700',
     marginBottom: 12,
   },
   cropCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
-    shadowColor: Colors.cardShadow,
+    borderColor: '#e0e0e0',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
+    shadowOpacity: 0.1,
     shadowRadius: 6,
     elevation: 2,
   },
@@ -217,9 +217,14 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: Colors.backgroundDark,
+    backgroundColor: '#f0f0f0',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  cropIcon: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#2E7D32',
   },
   cropNameWrap: {
     flex: 1,
@@ -229,20 +234,20 @@ const styles = StyleSheet.create({
   },
   cropName: {
     fontSize: 16,
-    color: Colors.text,
-    fontFamily: 'Poppins_700Bold',
+    color: '#333',
+    fontWeight: '700',
     flex: 1,
   },
   seasonBadge: {
-    backgroundColor: Colors.primaryLight + '20',
+    backgroundColor: 'rgba(46, 125, 50, 0.1)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
   seasonBadgeText: {
     fontSize: 11,
-    color: Colors.primary,
-    fontFamily: 'Poppins_600SemiBold',
+    color: '#2E7D32',
+    fontWeight: '600',
   },
   cropDetails: {
     gap: 8,
@@ -252,27 +257,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  waterIcon: {
+    fontSize: 14,
+    color: '#1565C0',
+  },
+  yieldIcon: {
+    fontSize: 14,
+    color: '#2E7D32',
+  },
   cropDetailLabel: {
     fontSize: 12,
-    color: Colors.textSecondary,
-    fontFamily: 'Poppins_500Medium',
+    color: '#666',
+    fontWeight: '500',
     width: 100,
   },
   cropDetailValue: {
     fontSize: 12,
-    color: Colors.text,
-    fontFamily: 'Poppins_600SemiBold',
+    color: '#333',
+    fontWeight: '600',
     flex: 1,
   },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-    gap: 12,
-  },
-  emptyText: {
-    fontSize: 15,
-    color: Colors.textSecondary,
-    fontFamily: 'Poppins_500Medium',
-  },
 });
+
+ 
