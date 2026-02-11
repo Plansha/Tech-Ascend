@@ -7,52 +7,52 @@ import {
   Pressable,
   Platform,
   Linking,
+  StatusBar,
 } from 'react-native';
-import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useApp } from '@/context/AppContext';
-import { translations } from '@/data/translations';
-import Colors from '@/constants/colors';
-import Footer from '@/components/Footer';
+import Icon from 'react-native-vector-icons/Ionicons';
+import LinearGradient from 'react-native-linear-gradient';
 
-export default function AboutScreen() {
-  const { language } = useApp();
-  const t = translations[language];
-  const insets = useSafeAreaInsets();
-  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+export default function AboutScreen({ navigation }) {
+  const handleBackPress = () => {
+    if (navigation) {
+      navigation.goBack();
+    } else {
+      console.log('Go back pressed');
+    }
+  };
 
   const features = [
     {
-      icon: 'location-outline' as const,
-      title: language === 'hi' ? '\u0938\u094D\u0925\u093E\u0928-\u0906\u0927\u093E\u0930\u093F\u0924 \u0921\u0947\u091F\u093E' : 'Location-Based Data',
-      desc: language === 'hi' ? '\u0906\u092A\u0915\u0947 \u0915\u094D\u0937\u0947\u0924\u094D\u0930 \u0915\u0947 \u0905\u0928\u0941\u0938\u093E\u0930 \u091C\u093E\u0928\u0915\u093E\u0930\u0940' : 'Data tailored to your region',
+      icon: 'location-outline',
+      title: 'Location-Based Data',
+      desc: 'Data tailored to your region',
     },
     {
-      icon: 'cloud-outline' as const,
-      title: language === 'hi' ? '\u0932\u093E\u0907\u0935 \u092E\u094C\u0938\u092E \u0921\u0947\u091F\u093E' : 'Live Weather Data',
-      desc: language === 'hi' ? '\u0930\u093F\u092F\u0932-\u091F\u093E\u0907\u092E \u092E\u094C\u0938\u092E \u0914\u0930 \u092A\u0942\u0930\u094D\u0935\u093E\u0928\u0941\u092E\u093E\u0928' : 'Real-time weather and forecasts',
+      icon: 'cloud-outline',
+      title: 'Live Weather Data',
+      desc: 'Real-time weather and forecasts',
     },
     {
-      icon: 'leaf-outline' as const,
-      title: language === 'hi' ? '\u092B\u0938\u0932 \u0938\u093F\u092B\u093E\u0930\u093F\u0936\u0947\u0902' : 'Crop Recommendations',
-      desc: language === 'hi' ? '\u092E\u094C\u0938\u092E \u0914\u0930 \u092E\u093F\u091F\u094D\u091F\u0940 \u0915\u0947 \u0906\u0927\u093E\u0930 \u092A\u0930' : 'Based on weather and soil conditions',
+      icon: 'leaf-outline',
+      title: 'Crop Recommendations',
+      desc: 'Based on weather and soil conditions',
     },
     {
-      icon: 'document-text-outline' as const,
-      title: language === 'hi' ? '\u0938\u0930\u0915\u093E\u0930\u0940 \u092F\u094B\u091C\u0928\u093E\u090F\u0902' : 'Government Schemes',
-      desc: language === 'hi' ? '\u092A\u093E\u0924\u094D\u0930\u0924\u093E \u0914\u0930 \u0932\u093E\u092D \u0915\u0940 \u091C\u093E\u0928\u0915\u093E\u0930\u0940' : 'Eligibility and benefits info',
+      icon: 'document-text-outline',
+      title: 'Government Schemes',
+      desc: 'Eligibility and benefits info',
     },
   ];
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: topPad + 12 }]}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={Colors.text} />
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      
+      <View style={styles.header}>
+        <Pressable onPress={handleBackPress} style={styles.backBtn}>
+          <Icon name="arrow-back" size={22} color="#000" />
         </Pressable>
-        <Text style={styles.headerTitle}>{t.about}</Text>
+        <Text style={styles.headerTitle}>About</Text>
         <View style={{ width: 30 }} />
       </View>
 
@@ -67,25 +67,27 @@ export default function AboutScreen() {
         >
           <View style={styles.heroLogo}>
             <View style={styles.heroLogoInner}>
-              <Ionicons name="leaf" size={36} color="#fff" />
+              <Icon name="leaf" size={36} color="#fff" />
             </View>
           </View>
           <Text style={styles.heroTitle}>FarmGPT</Text>
-          <Text style={styles.heroTagline}>{t.tagline}</Text>
+          <Text style={styles.heroTagline}>Empowering Farmers with AI</Text>
         </LinearGradient>
 
         <View style={styles.descCard}>
-          <Text style={styles.descText}>{t.aboutDesc}</Text>
+          <Text style={styles.descText}>
+            FarmGPT is your personal agriculture assistant providing location-based 
+            weather forecasts, crop recommendations, and government scheme information 
+            to help farmers make informed decisions.
+          </Text>
         </View>
 
-        <Text style={styles.sectionTitle}>
-          {language === 'hi' ? '\u092E\u0941\u0916\u094D\u092F \u0935\u093F\u0936\u0947\u0937\u0924\u093E\u090F\u0902' : 'Key Features'}
-        </Text>
+        <Text style={styles.sectionTitle}>Key Features</Text>
 
         {features.map((feature, index) => (
           <View key={index} style={styles.featureCard}>
             <View style={styles.featureIconWrap}>
-              <Ionicons name={feature.icon} size={22} color={Colors.primary} />
+              <Icon name={feature.icon} size={22} color="#4CAF50" />
             </View>
             <View style={styles.featureTextWrap}>
               <Text style={styles.featureTitle}>{feature.title}</Text>
@@ -95,22 +97,19 @@ export default function AboutScreen() {
         ))}
 
         <View style={styles.helplineCard}>
-          <Ionicons name="call" size={24} color={Colors.primary} />
+          <Icon name="call" size={24} color="#4CAF50" />
           <View style={styles.helplineTextWrap}>
-            <Text style={styles.helplineTitle}>{t.helpline}</Text>
+            <Text style={styles.helplineTitle}>Farmer Helpline</Text>
             <Pressable onPress={() => Linking.openURL('tel:18001801551')}>
-              <Text style={styles.helplineNumber}>{t.helplineNumber}</Text>
+              <Text style={styles.helplineNumber}>1800-180-1551</Text>
             </Pressable>
-            <Text style={styles.helplineDesc}>{t.officialSupport}</Text>
+            <Text style={styles.helplineDesc}>Official Government Support</Text>
           </View>
         </View>
 
-        <Text style={styles.versionText}>{t.version}</Text>
-
+        <Text style={styles.versionText}>Version 1.0.0</Text>
         <View style={{ height: 20 }} />
       </ScrollView>
-
-      <Footer />
     </View>
   );
 }
@@ -118,25 +117,26 @@ export default function AboutScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#F5F5F5',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 16,
-    backgroundColor: Colors.surface,
+    paddingVertical: 16,
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: '#E0E0E0',
+    paddingTop: Platform.OS === 'ios' ? 50 : 10,
   },
   backBtn: {
     padding: 4,
   },
   headerTitle: {
     fontSize: 17,
-    color: Colors.text,
-    fontFamily: 'Poppins_700Bold',
+    color: '#000',
+    fontWeight: '700',
   },
   scrollView: {
     flex: 1,
@@ -171,37 +171,35 @@ const styles = StyleSheet.create({
   heroTitle: {
     fontSize: 28,
     color: '#fff',
-    fontFamily: 'Poppins_700Bold',
+    fontWeight: '700',
   },
   heroTagline: {
     fontSize: 13,
     color: 'rgba(255,255,255,0.8)',
-    fontFamily: 'Poppins_400Regular',
     textAlign: 'center',
     lineHeight: 20,
   },
   descCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: '#E0E0E0',
   },
   descText: {
     fontSize: 14,
-    color: Colors.text,
-    fontFamily: 'Poppins_400Regular',
+    color: '#000',
     lineHeight: 22,
   },
   sectionTitle: {
     fontSize: 18,
-    color: Colors.text,
-    fontFamily: 'Poppins_700Bold',
+    color: '#000',
+    fontWeight: '700',
     marginBottom: 12,
   },
   featureCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: '#fff',
     borderRadius: 14,
     padding: 14,
     marginBottom: 10,
@@ -209,13 +207,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 14,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: '#E0E0E0',
   },
   featureIconWrap: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: Colors.backgroundDark,
+    backgroundColor: '#F0F0F0',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -224,16 +222,15 @@ const styles = StyleSheet.create({
   },
   featureTitle: {
     fontSize: 14,
-    color: Colors.text,
-    fontFamily: 'Poppins_600SemiBold',
+    color: '#000',
+    fontWeight: '600',
   },
   featureDesc: {
     fontSize: 12,
-    color: Colors.textSecondary,
-    fontFamily: 'Poppins_400Regular',
+    color: '#666',
   },
   helplineCard: {
-    backgroundColor: Colors.backgroundDark,
+    backgroundColor: '#F8F9FA',
     borderRadius: 16,
     padding: 18,
     marginTop: 16,
@@ -242,31 +239,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 14,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: '#D0D0D0',
   },
   helplineTextWrap: {
     flex: 1,
   },
   helplineTitle: {
     fontSize: 13,
-    color: Colors.textSecondary,
-    fontFamily: 'Poppins_500Medium',
+    color: '#666',
+    fontWeight: '500',
   },
   helplineNumber: {
     fontSize: 20,
-    color: Colors.primary,
-    fontFamily: 'Poppins_700Bold',
+    color: '#4CAF50',
+    fontWeight: '700',
   },
   helplineDesc: {
     fontSize: 11,
-    color: Colors.textSecondary,
-    fontFamily: 'Poppins_400Regular',
+    color: '#666',
   },
   versionText: {
     textAlign: 'center',
     fontSize: 12,
-    color: Colors.textSecondary,
-    fontFamily: 'Poppins_400Regular',
+    color: '#666',
     marginBottom: 8,
   },
 });
