@@ -1,7 +1,14 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
-import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Platform,
+  StatusBar,
+  Alert,
+} from 'react-native';
+import Icon from 'react-native-vector-icons/Ionicons';
+import LinearGradient from 'react-native-linear-gradient';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -11,13 +18,8 @@ import Animated, {
   withSpring,
   Easing,
 } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
-import Colors from '@/constants/colors';
-import { useApp } from '@/context/AppContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export default function SplashScreen() {
-  const { isLanguageLoaded } = useApp();
+export default function SplashScreen({ navigation }: { navigation?: any }) {
   const leafScale = useSharedValue(0);
   const leafRotate = useSharedValue(-30);
   const titleOpacity = useSharedValue(0);
@@ -41,17 +43,18 @@ export default function SplashScreen() {
   }, []);
 
   useEffect(() => {
-    if (!isLanguageLoaded) return;
-    const timer = setTimeout(async () => {
-      const savedLang = await AsyncStorage.getItem('farmgpt_language');
-      if (savedLang) {
-        router.replace('/dashboard');
+    const timer = setTimeout(() => {
+      // Navigate to dashboard (or language screen if first time)
+      if (navigation) {
+        navigation.replace('dashboard');
       } else {
-        router.replace('/language');
+        console.log('Splash complete - navigate to dashboard');
+        Alert.alert('Splash Complete', 'Ready to navigate to dashboard');
       }
-    }, 2500);
+    }, 3000);
+
     return () => clearTimeout(timer);
-  }, [isLanguageLoaded]);
+  }, [navigation]);
 
   const leafStyle = useAnimatedStyle(() => ({
     transform: [
@@ -76,6 +79,8 @@ export default function SplashScreen() {
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
     >
+      <StatusBar barStyle="light-content" backgroundColor="#1B5E20" />
+      
       <View style={styles.bgPattern}>
         {[...Array(6)].map((_, i) => (
           <View
@@ -98,7 +103,7 @@ export default function SplashScreen() {
         <Animated.View style={[styles.logoContainer, leafStyle]}>
           <View style={styles.logoOuter}>
             <View style={styles.logoInner}>
-              <Ionicons name="leaf" size={48} color="#FFFFFF" />
+              <Icon name="leaf" size={48} color="#FFFFFF" />
             </View>
           </View>
         </Animated.View>
@@ -110,14 +115,15 @@ export default function SplashScreen() {
         <Animated.View style={[styles.taglineWrap, taglineStyle]}>
           <View style={styles.taglineLine} />
           <Text style={styles.tagline}>
-            Your AI Farming Assistant{'\n'}for Smarter Agriculture
+            Your AI Farming Assistant
+            {'\n'}for Smarter Agriculture
           </Text>
           <View style={styles.taglineLine} />
         </Animated.View>
       </View>
 
       <View style={styles.bottomBadge}>
-        <Ionicons name="shield-checkmark" size={14} color="rgba(255,255,255,0.4)" />
+        <Icon name="shield-checkmark" size={14} color="rgba(255,255,255,0.4)" />
         <Text style={styles.bottomText}>Made for Indian Farmers</Text>
       </View>
     </LinearGradient>
@@ -164,7 +170,7 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: 40,
     color: '#FFFFFF',
-    fontFamily: 'Poppins_700Bold',
+    fontWeight: '700',
     letterSpacing: 1,
   },
   taglineWrap: {
@@ -181,20 +187,21 @@ const styles = StyleSheet.create({
   tagline: {
     fontSize: 14,
     color: 'rgba(255,255,255,0.8)',
-    fontFamily: 'Poppins_400Regular',
+    fontWeight: '400',
     textAlign: 'center',
     lineHeight: 22,
   },
   bottomBadge: {
     position: 'absolute',
-    bottom: Platform.OS === 'web' ? 50 : 60,
+    bottom: Platform.OS === 'ios' ? 60 : 40,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    paddingHorizontal: 20,
   },
   bottomText: {
     color: 'rgba(255,255,255,0.4)',
     fontSize: 12,
-    fontFamily: 'Poppins_400Regular',
+    fontWeight: '400',
   },
 });
