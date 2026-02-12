@@ -1,5 +1,4 @@
 # Tech-Ascend
-# Tech-Ascend
 FarmGPT
 Smart Farming, Simplified.
 
